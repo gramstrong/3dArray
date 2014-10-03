@@ -1,0 +1,285 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>Sphere Box</title>
+		<style>
+			#container {
+				background: #000;
+				width: 1200px;
+				height: 900px;
+			}
+		</style>
+	</head>
+	<body>
+
+		<div id="container">
+
+
+		</div>
+
+	</body>
+<!-- Shaders -->
+	<script type="x-shader/x-vertex" id="vertexshader">
+
+		// switch on high precision floats
+		#ifdef GL_ES
+		precision highp float;
+		#endif
+
+		uniform float amplitude;
+		attribute float displacement;
+		varying vec3 vNormal;		
+		
+		void main()
+		{
+			vNormal = normal;
+			
+			vec3 newPosition = position + normal * vec3(displacement * amplitude);
+			
+			gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition,1.0);
+		}
+
+	</script>
+
+	<script type="x-shader/x-fragment" id="fragmentshader">
+
+		#ifdef GL_ES
+		precision highp float;
+		#endif
+				
+		varying vec3 vNormal;
+		
+		void main()
+		{
+			vec3 light = vec3(0.5,0.2,1.0);
+			
+			light = normalize(light);
+			
+			float dProd = max(0.0, dot(vNormal, light));
+		
+			gl_FragColor = vec4(dProd, dProd, dProd, 1.0);
+		}
+
+	</script>
+<!-- End Shaders -->
+
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script>
+	<script src="js/three.min.js"></script>
+	<script src="js/STLLoader.js"></script>
+	<script src="js/TrackballControls.js"></script>
+
+	<script type="text/javascript">
+	
+	function log(msg) {
+    setTimeout(function() {
+        throw new Error(msg);
+    }, 0);
+	}
+
+	// set the scene size
+	var WIDTH = 1200,
+	    HEIGHT = 900;
+
+	// set some camera attributes
+	var VIEW_ANGLE = 45,
+	    ASPECT = WIDTH / HEIGHT,
+	    NEAR = 1,
+	    FAR = 1000;
+
+	// get the DOM element to attach to
+	// - assume we've got jQuery to hand
+	var $container = $('#container');
+
+	// create a WebGL renderer, camera
+	// and a scene
+	var renderer = new THREE.WebGLRenderer();
+	var camera = new THREE.PerspectiveCamera(
+		VIEW_ANGLE,
+    ASPECT,
+    NEAR,
+    FAR  );
+	var scene = new THREE.Scene();
+
+	// the camera starts at 0,0,0 so pull it back
+	camera.position.z = 200;
+
+	//controls for rotating camera
+	controls = new THREE.TrackballControls( camera );
+	controls.target.set( 0, 0, 0 );
+
+	controls.rotateSpeed = 1.0;
+	controls.zoomSpeed = 1.2;
+	controls.panSpeed = 0.8;
+
+	controls.noZoom = false;
+	controls.noPan = false;
+
+	controls.staticMoving = false;
+	controls.dynamicDampingFactor = 0.15;
+
+	controls.keys = [ 65, 83, 68 ];
+		
+
+	// start the renderer
+	renderer.setSize(WIDTH, HEIGHT);
+
+	// attach the render-supplied DOM element
+	$container.append(renderer.domElement);
+	
+var spheres = [];
+var shader_mats = [];
+var radius = 5, segments = 16, rings = 16;
+posx = -50;
+posy = -50;
+posz = 0;
+
+sphereGeo = new THREE.SphereGeometry(radius, segments, rings);
+
+
+for(i=0; i<1000; i++)
+{
+	// create the sphere's material
+	var attributes = {
+			displacement: {
+					type: 'f', // a float
+					value: [] // an empty array
+			}
+	};	
+	
+	var uniforms = {
+			amplitude: {
+					type: 'f', // a float
+					value: 0
+			}
+	};	
+	
+		var shaderMaterial = new THREE.ShaderMaterial({
+		uniforms: 			uniforms, 
+		attributes: 		attributes,
+		vertexShader:   $('#vertexshader').text(),
+		fragmentShader: $('#fragmentshader').text()
+	});
+	
+	shader_mats.push(shaderMaterial);
+	
+	// create a new mesh with sphere geometry -
+	// we will cover the sphereMaterial next!
+	var sphere = new THREE.Mesh(
+	   sphereGeo,
+	   shaderMaterial);
+					
+	sphere.wave = 'sin';	
+	sphere.callback = function()
+										{
+											if(this.wave == 'sin'){
+												this.wave = 'neg'; 
+												this.material.color.setHex(0x33FF55);
+											}else
+											{
+												this.wave = 'sin'; 
+												this.material.color.setHex( 0xFFFFFF );
+											}
+										}
+	
+	var vertices = sphere.geometry.vertices;
+	var values = attributes.displacement.value
+	for(var v = 0; v < vertices.length; v++) {
+			values.push(Math.random() * 2);
+	}
+		
+	if(i % 10 == 0)
+	{
+		posy += 10;
+		posx = -50;
+	}		
+	
+	if(i % 100 == 0)
+	{
+		posz += 10;
+		posy = -50;
+	}
+		
+	sphere.position.x -= posx;
+	sphere.position.y -= posy;
+	sphere.position.z -= posz;
+	posx += 10;	
+	
+	
+	spheres.push(sphere);
+	// add the sphere and camera to the scene
+	scene.add(sphere);
+}
+
+	scene.add(camera);
+	
+	projector = new THREE.Projector();
+	
+	document.addEventListener( 'mousedown', onDocumentMouseDown, false)	
+
+	function onDocumentMouseDown( event ) {
+
+			event.preventDefault();
+
+			var vector = new THREE.Vector3( 
+					( event.clientX / WIDTH ) * 2 - 1, 
+					- ( event.clientY / HEIGHT ) * 2 + 1, 
+					0.5 );
+
+			projector.unprojectVector( vector, camera );
+
+			var ray = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
+
+			var intersects = ray.intersectObjects(spheres);   
+			
+			if ( intersects.length > 0 ) {
+					intersects[0].object.callback();
+
+			}
+
+	}	
+		
+requestAnimFrame = (function() {
+		return window.requestAnimationFrame ||
+			 window.webkitRequestAnimationFrame ||
+			 window.mozRequestAnimationFrame ||
+			 window.oRequestAnimationFrame ||
+			 window.msRequestAnimationFrame ||
+			 function(/* function FrameRequestCallback */ callback, /* DOMElement Element */ element) {
+				 window.setTimeout(callback, 1000/60);
+			 };
+	})();
+		
+var frame = 0;
+
+function update() {
+
+    // update the amplitude based on
+    // the frame value
+
+		length = spheres.length;
+		
+		for(i=0; i<length; i++)
+		{
+			if(spheres[i].wave == 'sin')
+			{
+				shader_mats[i].uniforms.amplitude.value = Math.sin(frame);			
+			}else
+			{
+				shader_mats[i].uniforms.amplitude.value = Math.sin(-frame);						
+			}
+		}
+			
+    frame += 0.1;
+
+		controls.update();		
+		
+    renderer.render(scene, camera);
+  
+    // set up the next call
+    requestAnimFrame(update);
+}
+requestAnimFrame(update);
+
+	</script>
+</html>
