@@ -13,4 +13,4 @@ Three.js/three.min.js - Used as WebGL renderer, API that simplifies code
 TrackballControls.js -  Used for camera controls, zooming in and out, rotating the 3D array
 
 
-![ScreenShot](https:i.imgur.com/wkq16h3.png)
+![ScreenShot](https://raw.github.com/gramstrong/3dArray/master/3dArray.png)
